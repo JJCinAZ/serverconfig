@@ -1,4 +1,4 @@
-module serverconfig
+module github.com/jjcinaz/serverconfig
 
 go 1.25.6
 
