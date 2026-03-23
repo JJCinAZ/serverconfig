@@ -29,9 +29,13 @@ type HTTPConfig struct {
 }
 
 type HTTPSessionCookieConfig struct {
-	HashKey    string `yaml:"hashkey" env:"SESSIONHASHKEY"`
-	EncryptKey string `yaml:"encryptkey" env:"SESSIONENCRYPTKEY"`
-	Domain     string `yaml:"domain"`
+	HashKey       string `yaml:"hashkey" env:"SESSIONHASHKEY"`
+	EncryptKey    string `yaml:"encryptkey" env:"SESSIONENCRYPTKEY"`
+	Domain        string `yaml:"domain"`
+	MaxAgeSeconds int    `yaml:"maxageseconds"`
+	SameSite      int    `yaml:"samesite"` // 0 = default, 1 = lax, 2 = strict, 3 = none
+	Secure        bool   `yaml:"secure"`   // true if cookie should only be sent over HTTPS
+	HttpOnly      bool   `yaml:"httponly"` // true if cookie should not be accessible via JavaScript
 }
 
 type HTTPStaticCertConfig struct {
