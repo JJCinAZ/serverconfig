@@ -6,8 +6,11 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 // HTTPConfig are values necessary to start up an HTTP/HTTPS server for an application.
@@ -29,13 +32,110 @@ type HTTPConfig struct {
 }
 
 type HTTPSessionCookieConfig struct {
-	HashKey       string `yaml:"hashkey" env:"SESSIONHASHKEY"`
-	EncryptKey    string `yaml:"encryptkey" env:"SESSIONENCRYPTKEY"`
-	Domain        string `yaml:"domain"`
-	MaxAgeSeconds int    `yaml:"maxageseconds"`
-	SameSite      int    `yaml:"samesite"` // 0 = default, 1 = lax, 2 = strict, 3 = none
-	Secure        bool   `yaml:"secure"`   // true if cookie should only be sent over HTTPS
-	HttpOnly      bool   `yaml:"httponly"` // true if cookie should not be accessible via JavaScript
+	HashKey       string        `yaml:"hashkey" env:"SESSIONHASHKEY"`
+	EncryptKey    string        `yaml:"encryptkey" env:"SESSIONENCRYPTKEY"`
+	Domain        string        `yaml:"domain"`
+	MaxAgeSeconds int           `yaml:"maxageseconds"`
+	SameSite      http.SameSite `yaml:"samesite"` // 1 = default, 2 = lax, 3 = strict, 4 = none or "default", "lax", "strict", "none"
+	Secure        bool          `yaml:"secure"`   // true if cookie should only be sent over HTTPS
+	HttpOnly      bool          `yaml:"httponly"` // true if cookie should not be accessible via JavaScript
+}
+
+func (cfg *HTTPSessionCookieConfig) UnmarshalYAML(value *yaml.Node) error {
+	type httpSessionCookieConfigYAML struct {
+		HashKey       string `yaml:"hashkey"`
+		EncryptKey    string `yaml:"encryptkey"`
+		Domain        string `yaml:"domain"`
+		MaxAgeSeconds int    `yaml:"maxageseconds"`
+		SameSite      any    `yaml:"samesite"`
+		Secure        bool   `yaml:"secure"`
+		HttpOnly      bool   `yaml:"httponly"`
+	}
+	var (
+		raw      httpSessionCookieConfigYAML
+		err      error
+		sameSite http.SameSite
+	)
+
+	err = value.Decode(&raw)
+	if err != nil {
+		return err
+	}
+
+	cfg.HashKey = raw.HashKey
+	cfg.EncryptKey = raw.EncryptKey
+	cfg.Domain = raw.Domain
+	cfg.MaxAgeSeconds = raw.MaxAgeSeconds
+	cfg.Secure = raw.Secure
+	cfg.HttpOnly = raw.HttpOnly
+
+	if raw.SameSite == nil {
+		return nil
+	}
+
+	sameSite, err = parseHTTPSameSite(raw.SameSite)
+	if err != nil {
+		return err
+	}
+	cfg.SameSite = sameSite
+
+	return nil
+}
+
+func parseHTTPSameSite(raw any) (http.SameSite, error) {
+	var (
+		s         string
+		parsedInt int
+		err       error
+	)
+
+	switch value := raw.(type) {
+	case int:
+		return httpSameSiteFromInt(value)
+	case int64:
+		return httpSameSiteFromInt(int(value))
+	case uint64:
+		return httpSameSiteFromInt(int(value))
+	case string:
+		s = strings.TrimSpace(value)
+		parsedInt, err = strconv.Atoi(s)
+		if err == nil {
+			return httpSameSiteFromInt(parsedInt)
+		}
+		return httpSameSiteFromString(s)
+	default:
+		return 0, fmt.Errorf("invalid samesite type %T (expected int or string)", raw)
+	}
+}
+
+func httpSameSiteFromInt(value int) (http.SameSite, error) {
+	switch value {
+	case int(http.SameSiteDefaultMode):
+		return http.SameSiteDefaultMode, nil
+	case int(http.SameSiteLaxMode):
+		return http.SameSiteLaxMode, nil
+	case int(http.SameSiteStrictMode):
+		return http.SameSiteStrictMode, nil
+	case int(http.SameSiteNoneMode):
+		return http.SameSiteNoneMode, nil
+	default:
+		return 0, fmt.Errorf("invalid samesite integer %d (expected 1, 2, 3, or 4)", value)
+	}
+}
+
+func httpSameSiteFromString(value string) (http.SameSite, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "default", "defaultmode", "samesitedefaultmode":
+		return http.SameSiteDefaultMode, nil
+	case "lax", "laxmode", "samesitelaxmode":
+		return http.SameSiteLaxMode, nil
+	case "strict", "strictmode", "samesitestrictmode":
+		return http.SameSiteStrictMode, nil
+	case "none", "nonemode", "samesitenonemode":
+		return http.SameSiteNoneMode, nil
+	default:
+		return 0, fmt.Errorf("invalid samesite string %q (expected Default, Lax, Strict, or None)", value)
+	}
 }
 
 type HTTPStaticCertConfig struct {
