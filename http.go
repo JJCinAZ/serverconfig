@@ -21,11 +21,12 @@ import (
 //
 // If SkipHostNameTest is not true, then a DNS test for
 type HTTPConfig struct {
-	SSLBindAddr      string                  `yaml:"sslbindaddr"`
-	BindAddr         string                  `yaml:"bindaddr"`
-	TemplatePath     string                  `yaml:"templatepath"`
+	SSLBindAddr      string                  `yaml:"sslbindaddr" env:"SSLBINDADDR"`
+	BindAddr         string                  `yaml:"bindaddr" env:"BINDADDR"`
+	TemplatePath     string                  `yaml:"templatepath" env:"TEMPLATEPATH"`
 	ExternalHostName []string                `yaml:"externalhostname"`
 	SkipHostNameTest bool                    `yaml:"skiphostnametest"`
+	ProxyMode        bool                    `yaml:"proxymode" env:"PROXYMODE"`
 	Session          HTTPSessionCookieConfig `yaml:"sessioncookie"`
 	StaticCert       HTTPStaticCertConfig    `yaml:"static_cert"`
 	ACME             HTTPACMEConfig          `yaml:"acme"`
